@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==========================================
-# DarkGamer - Pterodactyl Installer
+# DarkGamer VPS + Pterodactyl Installer
 # Created By: ItsDarkgame By
 # ==========================================
 
@@ -11,6 +11,7 @@ set -e
 GREEN="\e[32m"
 RED="\e[31m"
 CYAN="\e[36m"
+YELLOW="\e[33m"
 RESET="\e[0m"
 
 # Root check
@@ -19,18 +20,11 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# OS check
-. /etc/os-release
-if [[ "$ID" != "ubuntu" ]]; then
-  echo -e "${RED}❌ Ubuntu only supported${RESET}"
-  exit 1
-fi
-
 banner() {
   clear
   echo -e "${CYAN}"
   echo "=========================================="
-  echo "            DarkGamer Installer"
+  echo "           DarkGamer Installer"
   echo "           Created By ItsDarkgame By"
   echo "=========================================="
   echo -e "${RESET}"
@@ -40,6 +34,52 @@ pause() {
   read -p "Press Enter to continue..."
 }
 
+# ======================
+# VPS INSTALL FUNCTION
+# ======================
+install_vps() {
+  banner
+  echo "Select VPS OS:"
+  echo "1) Debian 13"
+  echo "2) Ubuntu 22.04"
+  echo "3) Other Linux"
+  echo ""
+  read -p "Choose OS: " os_choice
+
+  case $os_choice in
+    1) OS_NAME="Debian 13" ;;
+    2) OS_NAME="Ubuntu 22.04" ;;
+    3) OS_NAME="Other Linux" ;;
+    *) echo -e "${RED}Invalid option${RESET}" ; pause; return ;;
+  esac
+
+  echo ""
+  echo "VPS Options:"
+  echo "1) START"
+  echo "2) VM NUMBER"
+  read -p "Choose option: " vps_option
+
+  case $vps_option in
+    1)
+      echo -e "${GREEN}Starting VPS creation for $OS_NAME...${RESET}"
+      sleep 2
+      echo "(Simulation) VPS created ✔"
+      ;;
+    2)
+      read -p "Enter VM NUMBER: " vm_number
+      echo -e "${GREEN}Creating $OS_NAME VM #$vm_number...${RESET}"
+      sleep 2
+      echo "(Simulation) VM #$vm_number created ✔"
+      ;;
+    *) echo -e "${RED}Invalid option${RESET}" ; pause ;;
+  esac
+
+  pause
+}
+
+# ======================
+# PANEL INSTALL FUNCTION
+# ======================
 install_panel() {
   banner
   echo -e "${GREEN}Installing Pterodactyl Panel...${RESET}"
@@ -69,12 +109,13 @@ install_panel() {
   php artisan key:generate --force
 
   echo -e "${GREEN}✅ Panel installation finished${RESET}"
-  echo "Next run manually:"
-  echo "php artisan migrate --seed"
-  echo "php artisan p:user:make"
+  echo "Next: run php artisan migrate --seed and p:user:make"
   pause
 }
 
+# ======================
+# WINGS INSTALL FUNCTION
+# ======================
 install_wings() {
   banner
   echo -e "${GREEN}Installing Pterodactyl Wings...${RESET}"
@@ -113,24 +154,41 @@ EOF
   systemctl enable wings
 
   echo -e "${GREEN}✅ Wings installed successfully${RESET}"
-  echo "Upload config.yml then run:"
-  echo "systemctl start wings"
+  echo "Upload config.yml and run: systemctl start wings"
   pause
 }
 
-# Menu loop
+# ======================
+# CLOUDFLARE INSTALL FUNCTION
+# ======================
+install_cloudflare() {
+  banner
+  echo -e "${GREEN}Installing Cloudflare tools...${RESET}"
+  apt update
+  apt install -y curl wget unzip
+  echo "(Simulation) Cloudflare setup complete ✔"
+  pause
+}
+
+# ======================
+# MAIN MENU LOOP
+# ======================
 while true; do
   banner
-  echo "1) Install Pterodactyl Panel"
-  echo "2) Install Pterodactyl Wings"
-  echo "3) Exit"
+  echo "1) Install VPS"
+  echo "2) Install Panel"
+  echo "3) Install Wings"
+  echo "4) Install Cloudflare"
+  echo "5) Exit"
   echo ""
-  read -p "Select an option: " option
+  read -p "Select an option: " main_option
 
-  case $option in
-    1) install_panel ;;
-    2) install_wings ;;
-    3) exit 0 ;;
+  case $main_option in
+    1) install_vps ;;
+    2) install_panel ;;
+    3) install_wings ;;
+    4) install_cloudflare ;;
+    5) exit 0 ;;
     *) echo -e "${RED}Invalid option${RESET}" ; sleep 1 ;;
   esac
 done
