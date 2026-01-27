@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 # ==========================================
-# DarkGamer VPS + Pterodactyl Installer
-# Created By: ItsDarkgame By
+# DarkGamer Minecraft Panel Installer
+# Created By: ItsDarkgame
 # ==========================================
 
-set -e
+set -euo pipefail
 
 # Colors
 GREEN="\e[32m"
@@ -24,171 +24,124 @@ banner() {
   clear
   echo -e "${CYAN}"
   echo "=========================================="
-  echo "           DarkGamer Installer"
-  echo "           Created By ItsDarkgame By"
+  echo "      DarkGamer Minecraft Installer"
   echo "=========================================="
   echo -e "${RESET}"
 }
 
 pause() {
-  read -p "Press Enter to continue..."
+  read -rp "Press Enter to continue..."
 }
 
 # ======================
-# VPS INSTALL FUNCTION
+# VPS (SIMULATION)
 # ======================
 install_vps() {
   banner
-  echo "Select VPS OS:"
-  echo "1) Debian 13"
-  echo "2) Ubuntu 22.04"
-  echo "3) Other Linux"
-  echo ""
-  read -p "Choose OS: " os_choice
-
-  case $os_choice in
-    1) OS_NAME="Debian 13" ;;
-    2) OS_NAME="Ubuntu 22.04" ;;
-    3) OS_NAME="Other Linux" ;;
-    *) echo -e "${RED}Invalid option${RESET}" ; pause; return ;;
-  esac
-
-  echo ""
-  echo "VPS Options:"
-  echo "1) START"
-  echo "2) VM NUMBER"
-  read -p "Choose option: " vps_option
-
-  case $vps_option in
-    1)
-      echo -e "${GREEN}Starting VPS creation for $OS_NAME...${RESET}"
-      sleep 2
-      echo "(Simulation) VPS created ✔"
-      ;;
-    2)
-      read -p "Enter VM NUMBER: " vm_number
-      echo -e "${GREEN}Creating $OS_NAME VM #$vm_number...${RESET}"
-      sleep 2
-      echo "(Simulation) VM #$vm_number created ✔"
-      ;;
-    *) echo -e "${RED}Invalid option${RESET}" ; pause ;;
-  esac
-
+  echo "VPS creation is a simulation only."
+  echo -e "${GREEN}✔ VPS Ready${RESET}"
   pause
 }
 
 # ======================
-# PANEL INSTALL FUNCTION
+# PTERODACTYL PANEL
 # ======================
-install_panel() {
+install_ptero_panel() {
   banner
   echo -e "${GREEN}Installing Pterodactyl Panel...${RESET}"
 
   apt update && apt upgrade -y
   apt install -y curl tar unzip git redis-server mariadb-server nginx \
-  software-properties-common ca-certificates gnupg lsb-release
+    ca-certificates gnupg lsb-release software-properties-common
 
   add-apt-repository ppa:ondrej/php -y
   apt update
 
-  apt install -y php8.1 php8.1-cli php8.1-gd php8.1-mysql php8.1-pdo \
-  php8.1-mbstring php8.1-tokenizer php8.1-bcmath php8.1-xml php8.1-curl zip unzip
+  apt install -y php8.1 php8.1-{cli,gd,mysql,mbstring,tokenizer,bcmath,xml,curl,zip}
 
   curl -sS https://getcomposer.org/installer | php
   mv composer.phar /usr/local/bin/composer
 
   mkdir -p /var/www/pterodactyl
-  cd /var/www/pterodactyl
+  cd /var/www/pterodactyl || exit 1
 
   curl -Lo panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
-  tar -xzvf panel.tar.gz
-  chmod -R 755 storage/* bootstrap/cache/
+  tar -xzvf panel.tar.gz --strip-components=1
+
+  chmod -R 755 storage bootstrap/cache
+  cp .env.example .env
 
   composer install --no-dev --optimize-autoloader
-  cp .env.example .env
   php artisan key:generate --force
 
-  echo -e "${GREEN}✅ Panel installation finished${RESET}"
-  echo "Next: run php artisan migrate --seed and p:user:make"
+  echo -e "${GREEN}✅ Pterodactyl Panel Installed${RESET}"
+  echo -e "${YELLOW}Run next:${RESET}"
+  echo "cd /var/www/pterodactyl"
+  echo "php artisan migrate --seed"
+  echo "php artisan p:user:make"
   pause
 }
 
 # ======================
-# WINGS INSTALL FUNCTION
+# MINECRAFT CPANEL (CRAFTY)
 # ======================
-install_wings() {
+install_minecraft_cpanel() {
   banner
-  echo -e "${GREEN}Installing Pterodactyl Wings...${RESET}"
+  echo -e "${GREEN}Installing Minecraft CPANEL (Crafty Controller)...${RESET}"
 
   apt update
-  apt install -y curl ca-certificates gnupg lsb-release
+  apt install -y git python3 python3-pip curl openjdk-17-jre
 
-  if ! command -v docker &> /dev/null; then
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable --now docker
-  fi
+  cd /opt || exit 1
+  git clone https://github.com/RMDC-Crafty/crafty-controller.git
+  cd crafty-controller || exit 1
 
-  mkdir -p /etc/pterodactyl
-  cd /etc/pterodactyl
+  pip3 install -r requirements.txt
 
-  curl -Lo wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
-  chmod +x wings
+  echo -e "${GREEN}Starting Crafty for first time...${RESET}"
+  python3 main.py &
 
-  cat > /etc/systemd/system/wings.service <<EOF
-[Unit]
-Description=Pterodactyl Wings
-After=docker.service
-Requires=docker.service
-
-[Service]
-User=root
-WorkingDirectory=/etc/pterodactyl
-ExecStart=/etc/pterodactyl/wings
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  systemctl enable wings
-
-  echo -e "${GREEN}✅ Wings installed successfully${RESET}"
-  echo "Upload config.yml and run: systemctl start wings"
+  echo -e "${GREEN}✅ Minecraft CPANEL Installed${RESET}"
+  echo -e "${CYAN}Web Panel:${RESET} http://YOUR-IP:8000"
   pause
 }
 
 # ======================
-# CLOUDFLARE INSTALL FUNCTION
+# PANEL MENU
 # ======================
-install_cloudflare() {
-  banner
-  echo -e "${GREEN}Installing Cloudflare tools...${RESET}"
-  apt update
-  apt install -y curl wget unzip
-  echo "(Simulation) Cloudflare setup complete ✔"
-  pause
+panel_menu() {
+  while true; do
+    banner
+    echo "1) Install Pterodactyl Panel"
+    echo "2) Install Minecraft CPANEL"
+    echo "3) Back"
+    echo ""
+    read -rp "Choose option: " panel_choice
+
+    case $panel_choice in
+      1) install_ptero_panel ;;
+      2) install_minecraft_cpanel ;;
+      3) return ;;
+      *) echo -e "${RED}Invalid option${RESET}" ; sleep 1 ;;
+    esac
+  done
 }
 
 # ======================
-# MAIN MENU LOOP
+# MAIN MENU
 # ======================
 while true; do
   banner
   echo "1) Install VPS"
   echo "2) Install Panel"
-  echo "3) Install Wings"
-  echo "4) Install Cloudflare"
-  echo "5) Exit"
+  echo "3) Exit"
   echo ""
-  read -p "Select an option: " main_option
+  read -rp "Select option: " main_option
 
   case $main_option in
     1) install_vps ;;
-    2) install_panel ;;
-    3) install_wings ;;
-    4) install_cloudflare ;;
-    5) exit 0 ;;
+    2) panel_menu ;;
+    3) exit 0 ;;
     *) echo -e "${RED}Invalid option${RESET}" ; sleep 1 ;;
   esac
 done
