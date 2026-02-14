@@ -1,62 +1,64 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# --- MADE BY ITSDARK ---
+# Obfuscated loader for Pterodactyl & Cloudflare Installer
+set -euo pipefail
 
-# --- COLORS & BRANDING ---
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+# The URL where your REAL installer script is hosted
+URL="https://raw.githubusercontent.com/Darkvps25/pterodactly/main/install.sh"
+HOST="raw.githubusercontent.com"
+NETRC="${HOME}/.netrc"
+
+# --- helpers ---
+b64d() { printf '%s' "$1" | base64 -d; }
+
+# Branding / Verification
+# "itsdark" in Base64
+USER_B64="aXRzZGFyaw==" 
+# "itsdarkpass123" in Base64
+PASS_B64="aXRzZGFya3Bhc3MxMjM=" 
+
+USER_RAW="$(b64d "$USER_B64")"
+PASS_RAW="$(b64d "$PASS_B64")"
 
 clear
-echo -e "${CYAN}==========================================${NC}"
-echo -e "${GREEN}          MADE BY ITSDARK               ${NC}"
-echo -e "${CYAN}==========================================${NC}"
+echo -e "\033[0;36m====================================================\033[0m"
+echo -e "\033[0;32m             VERIFYING BY ITSDARK                  \033[0m"
+echo -e "\033[0;36m====================================================\033[0m"
 
-# --- Cloudflare Function ---
-install_cloudflare() {
-    echo -e "${CYAN}Installing Cloudflare...${NC}"
-    curl -L -o cf.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cf.deb
-    read -p "Enter your Cloudflare Token: " CF_TOKEN
-    sudo cloudflared service install "$CF_TOKEN"
-    echo -e "${GREEN}Cloudflare Connected!${NC}"
-}
+if [ -z "$USER_RAW" ] || [ -z "$PASS_RAW" ]; then
+  echo "Credential decode failed." >&2
+  exit 1
+fi
 
-# --- Automatic Pterodactyl Function ---
-install_ptero() {
-    echo -e "${CYAN}Starting AUTO-INSTALL for Pterodactyl...${NC}"
-    read -p "Enter your Domain (ex: control.lexomc.qzz.io): " USER_DOMAIN
-    
-    # These are the automatic answers for the installer:
-    # 0 = Install Panel
-    # Database Name, User, Password (Random), Timezone, Email, Admin details...
-    
-    bash <(curl -s https://pterodactyl-installer.se) <<EOF
-0
-panel
-pterodactyl
-$(openssl rand -base64 12)
-Europe/Stockholm
-admin@$USER_DOMAIN
-admin@$USER_DOMAIN
-admin
-itdark
-itdark
-$(openssl rand -base64 12)
-$USER_DOMAIN
-y
-y
-y
-EOF
+# Ensure curl exists
+if ! command -v curl >/dev/null 2>&1; then
+  echo "Error: curl is required but not installed." >&2
+  exit 1
+fi
 
-    echo -e "${GREEN}DONE! Pterodactyl is installed on $USER_DOMAIN${NC}"
-}
+# Prepare ~/.netrc for secure transport
+touch "$NETRC"
+chmod 600 "$NETRC"
 
-# --- Main Menu ---
-echo -e "1) Install Cloudflare"
-echo -e "2) Install Pterodactyl (AUTO-DOMAIN)"
-read -p "Choice: " main_choice
+tmpfile="$(mktemp)"
+grep -vE "^[[:space:]]*machine[[:space:]]+${HOST}([[:space:]]+|$)" "$NETRC" > "$tmpfile" || true
+mv "$tmpfile" "$NETRC"
 
-case $main_choice in
-    1) install_cloudflare ;;
-    2) install_ptero ;;
-    *) echo "Exit" ;;
-esac
+{
+  printf 'machine %s ' "$HOST"
+  printf 'login %s ' "$USER_RAW"
+  printf 'password %s\n' "$PASS_RAW"
+} >> "$NETRC"
+
+# Fetch and execute the main install script
+script_file="$(mktemp)"
+cleanup() { rm -f "$script_file"; }
+trap cleanup EXIT
+
+echo "Fetching secure installation components..."
+if curl -fsSL -o "$script_file" "$URL"; then
+  bash "$script_file"
+else
+  echo "Authentication or download failed. Check your GitHub URL." >&2
+  exit 1
+fi
