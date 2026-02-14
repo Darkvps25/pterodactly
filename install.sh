@@ -1,64 +1,53 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # --- MADE BY ITSDARK ---
-# Obfuscated loader for Pterodactyl & Cloudflare Installer
-set -euo pipefail
+set -e
 
-# The URL where your REAL installer script is hosted
-URL="https://raw.githubusercontent.com/Darkvps25/pterodactly/main/install.sh"
-HOST="raw.githubusercontent.com"
-NETRC="${HOME}/.netrc"
-
-# --- helpers ---
-b64d() { printf '%s' "$1" | base64 -d; }
-
-# Branding / Verification
-# "itsdark" in Base64
-USER_B64="aXRzZGFyaw==" 
-# "itsdarkpass123" in Base64
-PASS_B64="aXRzZGFya3Bhc3MxMjM=" 
-
-USER_RAW="$(b64d "$USER_B64")"
-PASS_RAW="$(b64d "$PASS_B64")"
-
+# Branding
 clear
 echo -e "\033[0;36m====================================================\033[0m"
-echo -e "\033[0;32m             VERIFYING BY ITSDARK                  \033[0m"
+echo -e "\033[0;32m             MADE BY ITSDARK                       \033[0m"
 echo -e "\033[0;36m====================================================\033[0m"
 
-if [ -z "$USER_RAW" ] || [ -z "$PASS_RAW" ]; then
-  echo "Credential decode failed." >&2
-  exit 1
-fi
+echo -e "1) Install Cloudflare Tunnel"
+echo -e "2) Install Pterodactyl Panel (AUTO-INSTALL)"
+read -p "Select Choice: " main_choice
 
-# Ensure curl exists
-if ! command -v curl >/dev/null 2>&1; then
-  echo "Error: curl is required but not installed." >&2
-  exit 1
-fi
+if [ "$main_choice" == "1" ]; then
+    echo "Downloading Cloudflare..."
+    curl -L -o cf.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    sudo dpkg -i cf.deb
+    read -p "Enter CF Token: " CF_TOKEN
+    sudo cloudflared service install "$CF_TOKEN"
+    echo "Cloudflare Tunnel is Active!"
 
-# Prepare ~/.netrc for secure transport
-touch "$NETRC"
-chmod 600 "$NETRC"
+elif [ "$main_choice" == "2" ]; then
+    echo -ne "\033[0;33mEnter Domain (e.g. control.lexomc.qzz.io): \033[0m"
+    read MY_DOMAIN
+    
+    echo "Starting Pterodactyl Auto-Installation for $MY_DOMAIN..."
+    sleep 2
 
-tmpfile="$(mktemp)"
-grep -vE "^[[:space:]]*machine[[:space:]]+${HOST}([[:space:]]+|$)" "$NETRC" > "$tmpfile" || true
-mv "$tmpfile" "$NETRC"
+    # This sends all answers to the installer so it never stops to ask
+    bash <(curl -s https://pterodactyl-installer.se) <<EOF
+0
+panel
+pterodactyl
+$(openssl rand -base64 8)
+Europe/London
+admin@$MY_DOMAIN
+admin@$MY_DOMAIN
+admin
+itdark
+itdark
+$(openssl rand -base64 8)
+$MY_DOMAIN
+y
+y
+y
+EOF
 
-{
-  printf 'machine %s ' "$HOST"
-  printf 'login %s ' "$USER_RAW"
-  printf 'password %s\n' "$PASS_RAW"
-} >> "$NETRC"
-
-# Fetch and execute the main install script
-script_file="$(mktemp)"
-cleanup() { rm -f "$script_file"; }
-trap cleanup EXIT
-
-echo "Fetching secure installation components..."
-if curl -fsSL -o "$script_file" "$URL"; then
-  bash "$script_file"
+    echo -e "\033[0;32mSUCCESS! Pterodactyl installed on $MY_DOMAIN\033[0m"
 else
-  echo "Authentication or download failed. Check your GitHub URL." >&2
-  exit 1
+    echo "Exiting..."
+    exit 1
 fi
