@@ -1,68 +1,62 @@
 #!/bin/bash
 
-# --- COLORS ---
-GREEN='\033[0;32m'
+# --- COLORS & BRANDING ---
 CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
+GREEN='\033[0;32m'
 NC='\033[0m'
 
 clear
-echo -e "${CYAN}====================================================${NC}"
-echo -e "${GREEN}             MADE BY ITSDARK                       ${NC}"
-echo -e "${CYAN}====================================================${NC}"
+echo -e "${CYAN}==========================================${NC}"
+echo -e "${GREEN}          MADE BY ITSDARK               ${NC}"
+echo -e "${CYAN}==========================================${NC}"
 
-# --- Cloudflare Tunnel Fix ---
+# --- Cloudflare Function ---
 install_cloudflare() {
-    clear
-    echo -e "${CYAN}[1] Installing Cloudflare...${NC}"
-    
-    # Download and install the connector
-    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared.deb
-    
-    echo -e "${YELLOW}Paste your Tunnel Token from Cloudflare Dashboard:${NC}"
-    read -p "Token: " CLOUDFLARE_TOKEN
-    
-    if [ -z "$CLOUDFLARE_TOKEN" ]; then
-        echo -e "${RED}Error: Token is empty!${NC}"
-        sleep 2
-    else
-        # This command actually connects it to the VPS
-        sudo cloudflared service install "$CLOUDFLARE_TOKEN"
-        echo -e "${GREEN}Cloudflare Tunnel is now ACTIVE!${NC}"
-        sleep 3
-    fi
+    echo -e "${CYAN}Installing Cloudflare...${NC}"
+    curl -L -o cf.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    sudo dpkg -i cf.deb
+    read -p "Enter your Cloudflare Token: " CF_TOKEN
+    sudo cloudflared service install "$CF_TOKEN"
+    echo -e "${GREEN}Cloudflare Connected!${NC}"
 }
 
-# --- Pterodactyl Panel Fix ---
+# --- Automatic Pterodactyl Function ---
 install_ptero() {
-    clear
-    echo -e "${CYAN}[2] Starting Pterodactyl Installer...${NC}"
-    echo -e "${YELLOW}NOTE: When the installer asks for a choice, type it manually.${NC}"
-    echo -e "${YELLOW}For the Panel, usually you type '0'.${NC}"
-    sleep 2
+    echo -e "${CYAN}Starting AUTO-INSTALL for Pterodactyl...${NC}"
+    read -p "Enter your Domain (ex: control.lexomc.qzz.io): " USER_DOMAIN
+    
+    # These are the automatic answers for the installer:
+    # 0 = Install Panel
+    # Database Name, User, Password (Random), Timezone, Email, Admin details...
+    
+    bash <(curl -s https://pterodactyl-installer.se) <<EOF
+0
+panel
+pterodactyl
+$(openssl rand -base64 12)
+Europe/Stockholm
+admin@$USER_DOMAIN
+admin@$USER_DOMAIN
+admin
+itdark
+itdark
+$(openssl rand -base64 12)
+$USER_DOMAIN
+y
+y
+y
+EOF
 
-    # We run the script WITHOUT automatic inputs so you can see the errors
-    bash <(curl -s https://pterodactyl-installer.se)
-
-    echo -e "${GREEN}Installer finished. Check above for any errors.${NC}"
-    read -p "Press Enter to return to menu..."
+    echo -e "${GREEN}DONE! Pterodactyl is installed on $USER_DOMAIN${NC}"
 }
 
 # --- Main Menu ---
-while true; do
-    echo -e "\n${CYAN}--- MAIN MENU ---${NC}"
-    echo -e "1) Install Cloudflare Tunnel"
-    echo -e "2) Install Pterodactyl Panel"
-    echo -e "3) Exit"
-    echo -ne "${GREEN}Choose an option: ${NC}"
-    read choice
-    
-    case $choice in
-        1) install_cloudflare ;;
-        2) install_ptero ;;
-        3) exit 0 ;;
-        *) echo -e "${RED}Invalid option!${NC}" ; sleep 1 ;;
-    esac
-done
+echo -e "1) Install Cloudflare"
+echo -e "2) Install Pterodactyl (AUTO-DOMAIN)"
+read -p "Choice: " main_choice
+
+case $main_choice in
+    1) install_cloudflare ;;
+    2) install_ptero ;;
+    *) echo "Exit" ;;
+esac
